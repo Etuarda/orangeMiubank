@@ -1,0 +1,25 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "MiuBank API",
+        "description": "Documentação da API do MiuBank 🐱💰",
+        "version": "1.0.0"
+    },
+    "host": "localhost:3000",
+    "basePath": "/",
+    "schemes": [
+        "http"
+    ],
+    "paths": {
+        "/": {
+            "get": {
+                "summary": "Rota de teste",
+                "responses": {
+                    "200": {
+                        "description": "API rodando"
+                    }
+                }
+            }
+        }
+    }
+}
