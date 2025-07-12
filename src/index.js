@@ -5,11 +5,17 @@ const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJSDoc = require('swagger-jsdoc');
 
+// Importação das rotas (sem ping.routes)
 const authRoutes = require('./routes/authRoutes');
 const accountRoutes = require('./routes/account.routes');
 const marketRoutes = require('./routes/market.routes');
 const userRoutes = require('./routes/user.routes');
+const reportRoutes = require('./routes/report.routes'); // Certifique-se que este arquivo existe!
 
+// Importação do job de atualização de mercado
+const startMarketUpdateJob = require('./jobs/marketUpdateJob'); // Certifique-se que este arquivo existe em src/jobs/!
+
+// Importação do middleware de erro
 const errorMiddleware = require('./middlewares/errorMiddleware');
 
 const app = express();
@@ -72,40 +78,49 @@ const swaggerOptions = {
             { name: 'Conta', description: 'Operações financeiras relacionadas às contas do usuário (depósito, saque, transferências).' },
             { name: 'Mercado', description: 'Operações de compra e venda de ativos e consulta de mercado.' },
             { name: 'Usuário', description: 'Rotas para informações do perfil do usuário.' },
+            { name: 'Relatórios', description: 'Geração de extratos e resumos financeiros.' },
+            // Removido a tag 'Ping'
         ]
     },
     apis: [
         './src/routes/authRoutes.js',
         './src/routes/account.routes.js',
         './src/routes/market.routes.js',
-        './src/routes/user.routes.js'
+        './src/routes/user.routes.js',
+        './src/routes/report.routes.js',
+        // Removido './src/routes/ping.routes.js'
     ],
 };
 
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
 
-// Rota básica
+// Rota básica de saúde da API
 app.get('/', (req, res) => {
     res.send('MiuBank API rodando! 🐱💰');
 });
 
-// Swagger UI
+// Configura a interface do Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Rotas públicas
+// Montagem das rotas públicas
 app.use('/auth', authRoutes);
+// Removida a montagem da rota '/ping'
 
-// Rotas protegidas
+// Montagem das rotas protegidas
 app.use('/accounts', accountRoutes);
 app.use('/market', marketRoutes);
 app.use('/user', userRoutes);
+app.use('/reports', reportRoutes);
 
-// Middleware de erro
+// Middleware de tratamento de erros global
 app.use(errorMiddleware);
 
-// Inicialização
+// Inicialização do servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
     console.log(`📄 Swagger disponível em http://localhost:${PORT}/api-docs`);
+
+    // Inicia o job de atualização de mercado em segundo plano
+    startMarketUpdateJob();
 });
