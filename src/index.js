@@ -3,14 +3,13 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
-const swaggerJSDoc = require('swagger-jsdoc'); // Importar swagger-jsdoc
+const swaggerJSDoc = require('swagger-jsdoc');
 const pingRoutes = require('./routes/ping.routes');
-const authRoutes = require('./routes/authRoutes'); // Importar as rotas de autenticação
-const authMiddleware = require('./middlewares/authMiddleware'); // Importar o middleware de autenticação
-const accountController = require('./controllers/accountController'); // Importar accountController
-const userService = require('./services/userService'); // Importar userService (para exemplo)
-const errorMiddleware = require('./middlewares/errormiddleware');
-
+const authRoutes = require('./routes/authRoutes');
+const accountRoutes = require('./routes/account.routes'); // Importar as rotas de conta
+const authMiddleware = require('./middlewares/authMiddleware');
+const userService = require('./services/userService'); // Importar userService (para exemplo de profile)
+const errorMiddleware = require('./middlewares/errorMiddleware'); // Certifique-se do nome do arquivo
 
 const app = express();
 
@@ -20,19 +19,19 @@ app.use(express.json());
 // Configuração do Swagger JSDoc
 const swaggerOptions = {
     definition: {
-        openapi: '3.0.0', // Especifica a versão OpenAPI (anteriormente swagger: '2.0')
+        openapi: '3.0.0',
         info: {
             title: 'MiuBank API',
             description: 'Documentação da API do MiuBank 🐱💰',
             version: '1.0.0',
         },
-        servers: [ // Adicionado servers para compatibilidade com OpenAPI 3
+        servers: [
             {
                 url: `http://localhost:${process.env.PORT || 3000}`,
                 description: 'Servidor de Desenvolvimento',
             },
         ],
-        components: { // Define schemas e securitySchemes
+        components: {
             securitySchemes: {
                 bearerAuth: {
                     type: 'http',
@@ -50,14 +49,13 @@ const swaggerOptions = {
                         }
                     }
                 },
-                AuthResponse: {
+                AuthResponse: { // Embora não seja diretamente usado, mantém a consistência
                     type: 'object',
                     properties: {
                         message: { type: 'string' },
                         token: { type: 'string' }
                     }
                 },
-                // Adicione outros schemas conforme necessário para as rotas
                 UserRegister: { // Exemplo de schema para o corpo da requisição de registro
                     type: 'object',
                     required: ['name', 'email', 'password', 'cpf', 'birthDate'],
@@ -77,6 +75,8 @@ const swaggerOptions = {
                         password: { type: 'string', format: 'password', example: 'minhaSenhaSegura123' },
                     }
                 }
+                // Novos schemas para as operações de conta não são estritamente necessários aqui,
+                // pois já são definidos inline nos @swagger da rota.
             }
         }
     },
@@ -90,68 +90,17 @@ app.get('/', (req, res) => {
     res.send('MiuBank API rodando! 🐱💰');
 });
 app.use(pingRoutes);
-app.use('/auth', authRoutes); // Usar as rotas de autenticação sob o prefixo /auth
+app.use('/auth', authRoutes); // Rotas de autenticação
 
 // Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // Usar swaggerSpec gerado pelo JSDoc
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// --- Rotas Protegidas ---
-// Todas as rotas abaixo usarão o middleware de autenticação
-app.use(authMiddleware);
-
-// Exemplo de rota protegida para obter o perfil do usuário logado
-/**
- * @swagger
- * /user/profile:
- * get:
- * summary: Retorna o perfil completo do usuário logado.
- * tags: [Usuário]
- * security:
- * - bearerAuth: []
- * responses:
- * 200:
- * description: Perfil do usuário.
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * id: { type: string }
- * name: { type: string }
- * email: { type: string }
- * cpf: { type: string }
- * birthDate: { type: string, format: date }
- * accounts:
- * type: array
- * items:
- * type: object
- * properties:
- * id: { type: string }
- * type: { type: string, enum: [CORRENTE, INVESTIMENTO] }
- * balance: { type: number, format: float }
- * pet:
- * type: object
- * properties:
- * id: { type: string }
- * mood: { type: number }
- * savedThisMonth: { type: number, format: float }
- * lastUpdate: { type: string, format: date-time }
- * 401:
- * description: Não autorizado / Token inválido ou ausente.
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/ErrorResponse'
- * 500:
- * description: Erro interno do servidor.
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/ErrorResponse'
- */
-app.get('/user/profile', async (req, res) => {
+// --- Rotas Protegidas (Exemplo) ---
+// Note: o middleware authMiddleware pode ser aplicado individualmente ou por grupo de rotas.
+// Aqui, para /user/profile, é aplicado diretamente. Para /accounts, será aplicado nas rotas.
+app.get('/user/profile', authMiddleware, async (req, res) => { // Movendo authMiddleware para aqui
     try {
-        const user = await userService.getUserById(req.user.id); // req.user é populado pelo authMiddleware
+        const user = await userService.getUserById(req.user.id);
         if (!user) {
             return res.status(404).json({ error: 'Usuário não encontrado.' });
         }
@@ -162,52 +111,8 @@ app.get('/user/profile', async (req, res) => {
     }
 });
 
-// Endpoint para obter saldos das contas do usuário logado
-/**
- * @swagger
- * /accounts/balances:
- * get:
- * summary: Retorna os saldos da Conta Corrente e Conta Investimento do usuário logado.
- * tags: [Conta]
- * security:
- * - bearerAuth: []
- * responses:
- * 200:
- * description: Saldos das contas.
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * corrente:
- * type: number
- * format: float
- * example: 5000.00
- * investimento:
- * type: number
- * format: float
- * example: 1000.00
- * 401:
- * description: Não autorizado / Token inválido ou ausente.
- * content:
- * application: json
- * schema:
- * $ref: '#/components/schemas/ErrorResponse'
- * 404:
- * description: Contas não encontradas para o usuário.
- * content:
- * application: json
- * schema:
- * $ref: '#/components/schemas/ErrorResponse'
- * 500:
- * description: Erro interno do servidor.
- * content:
- * application: json
- * schema:
- * $ref: '#/components/schemas/ErrorResponse'
- */
-app.get('/accounts/balances', accountController.getAccountBalances);
-
+// Usar as rotas de conta (que já aplicam authMiddleware internamente no account.routes.js)
+app.use('/accounts', accountRoutes);
 
 // Middleware de erro
 app.use(errorMiddleware);
