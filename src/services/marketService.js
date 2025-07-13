@@ -4,18 +4,17 @@ const { Prisma } = require('@prisma/client');
 
 const marketService = {
     /**
-     * Simula a obtenção de ativos disponíveis no mercado.
-     * Para um hackathon, podemos ter alguns ativos fixos com preços simulados.
+     * Simula a obtenção de ativos disponíveis no mercado e atualiza seus preços.
+     * Para ações, simula flutuações. Para renda fixa, simula rentabilidade.
      * @returns {Promise<object[]>} Lista de ativos com seus preços atuais.
      */
     async getAvailableAssets() {
-        // Para garantir que os preços das ações flutuem, podemos atualizar todos os ativos aqui
-        // ou criar um cron job separado. Para simplicidade do hackathon, atualizaremos ao buscar.
         const allAssets = await prisma.asset.findMany();
 
         await Promise.all(allAssets.map(async (asset) => {
+            let newPrice = new Prisma.Decimal(asset.currentPrice);
+
             if (asset.type === 'ACAO') {
-                const currentPrice = new Prisma.Decimal(asset.currentPrice);
                 // Simulação da variação de preço para ações
                 const randomValue = Math.random();
                 let variationPercentage;
@@ -32,21 +31,34 @@ const marketService = {
 
                 // Sorteia a direção da variação (alta ou baixa)
                 const direction = Math.random() < 0.5 ? 1 : -1; // 50% de chance de subir, 50% de cair
-                const variation = currentPrice.times(variationPercentage).times(direction);
-                let newPrice = currentPrice.plus(variation);
+                const variation = newPrice.times(variationPercentage).times(direction);
+                newPrice = newPrice.plus(variation);
 
                 // Garante que o valor das ações nunca seja negativo
                 if (newPrice.lessThan(0)) {
                     newPrice = new Prisma.Decimal(0.01); // Preço mínimo para evitar valores negativos
                 }
+            } else if (asset.type === 'CDB' || asset.type === 'TESOURO_DIRETO') {
+                // Simulação de rentabilidade para Renda Fixa
+                // Para simplificar, vamos aplicar a taxa diária proporcional
+                if (asset.rate && asset.rateType) {
+                    const dailyRate = new Prisma.Decimal(asset.rate).div(365); // Taxa anual para diária
+                    const growth = newPrice.times(dailyRate);
+                    newPrice = newPrice.plus(growth);
 
-                await prisma.asset.update({
-                    where: { id: asset.id },
-                    data: { currentPrice: newPrice, lastUpdate: new Date() }
-                });
+                    // Opcional: Simular inflação para pós-fixados (exemplo simplificado)
+                    if (asset.rateType === 'pos') {
+                        const inflationFactor = new Prisma.Decimal(1).plus(new Prisma.Decimal(0.0001)); // Ex: 0.01% de inflação diária
+                        newPrice = newPrice.times(inflationFactor);
+                    }
+                }
             }
-            // Para Renda Fixa, o preço pode ser considerado estável ou atualizado por outro critério
-            // Por enquanto, não faremos variações complexas para RF no simulador de preços aqui.
+
+            // Atualiza o preço e a data da última atualização no banco de dados
+            await prisma.asset.update({
+                where: { id: asset.id },
+                data: { currentPrice: newPrice, lastUpdate: new Date() }
+            });
         }));
 
         // Retorna os ativos atualizados
@@ -90,7 +102,7 @@ const marketService = {
      */
     async getUserInvestments(userId) {
         // Opcional: Atualizar preços de ativos antes de retornar os investimentos
-        // await this.getAvailableAssets();
+        // await this.getAvailableAssets(); // Já é chamado implicitamente por getAssetById/getAssetBySymbol
 
         const investments = await prisma.investment.findMany({
             where: { userId: userId, isSold: false }, // Retorna apenas investimentos ativos
