@@ -34,67 +34,67 @@ enum MovementType {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  name      String
-  email     String    @unique
-  password  String
-  cpf       String    @unique
-  birthDate DateTime
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  points    Int       @default(0) // Novo campo para gamificação: pontos do usuário
+  id              String           @id @default(uuid())
+  name            String
+  email           String           @unique
+  password        String
+  cpf             String           @unique
+  birthDate       DateTime
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  points          Int              @default(0)
 
-  accounts     Account[]
-  investments  Investment[]
-  pet          Pet?
-  financialGoals FinancialGoal[] // Relacionamento com metas financeiras
+  accounts        Account[]
+  investments     Investment[]
+  pet             Pet?
+  financialGoals  FinancialGoal[]
 }
 
 model Account {
-  id        String      @id @default(uuid())
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  type      AccountType
-  balance   Decimal     @default(0.00) @db.Decimal(10, 2)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id            String       @id @default(uuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  type          AccountType
+  balance       Decimal      @default(0.00) @db.Decimal(10, 2)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  movementsFrom Movement[] @relation("FromAccount")
-  movementsTo   Movement[] @relation("ToAccount")
+  movementsFrom Movement[]   @relation("FromAccount")
+  movementsTo   Movement[]   @relation("ToAccount")
 }
 
 model Asset {
-  id                String      @id @default(uuid())
-  symbol            String?     @unique
+  id                String     @id @default(uuid())
+  symbol            String?    @unique
   name              String
   type              AssetType
-  currentPrice      Decimal     @db.Decimal(10, 2)
+  currentPrice      Decimal    @db.Decimal(10, 2)
   description       String?
-  rate              Decimal?    @db.Decimal(5, 4)
+  rate              Decimal?   @db.Decimal(5, 4)
   rateType          String?
   maturity          DateTime?
   minimumInvestment Decimal?   @db.Decimal(10, 2)
-  lastUpdate        DateTime    @default(now()) @updatedAt
+  lastUpdate        DateTime   @default(now()) @updatedAt
 
   investments       Investment[]
 }
 
 model Investment {
-  id             String    @id @default(uuid())
+  id             String      @id @default(uuid())
   userId         String
-  user           User      @relation(fields: [userId], references: [id])
+  user           User        @relation(fields: [userId], references: [id])
   assetId        String
-  asset          Asset     @relation(fields: [assetId], references: [id])
-  quantity       Decimal   @db.Decimal(10, 4)
-  purchasePrice  Decimal   @db.Decimal(10, 2)
-  purchaseDate   DateTime  @default(now())
-  isSold         Boolean   @default(false)
-  salePrice      Decimal?  @db.Decimal(10, 2)
+  asset          Asset       @relation(fields: [assetId], references: [id])
+  quantity       Decimal     @db.Decimal(10, 4)
+  purchasePrice  Decimal     @db.Decimal(10, 2)
+  purchaseDate   DateTime    @default(now())
+  isSold         Boolean     @default(false)
+  salePrice      Decimal?    @db.Decimal(10, 2)
   saleDate       DateTime?
-  profit         Decimal?  @db.Decimal(10, 2)
-  taxPaid        Decimal?  @db.Decimal(10, 2)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  profit         Decimal?    @db.Decimal(10, 2)
+  taxPaid        Decimal?    @db.Decimal(10, 2)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   movements      Movement[]
 }
@@ -142,7 +142,7 @@ model FinancialGoal {
   userId        String
   user          User     @relation(fields: [userId], references: [id])
   name          String   // Nome da meta (ex: "Viagem", "Notebook novo")
-  targetAmount  Decimal  @db.Decimal(12, 2)126127128129130131132133134135136137138139140141142143144145146147148149150151152$0
+  targetAmount  Decimal  @db.Decimal(12, 2)
   currentAmount Decimal  @default(0.00) @db.Decimal(12, 2)
   deadline      DateTime?
   isAchieved    Boolean  @default(false)
