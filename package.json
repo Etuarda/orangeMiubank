@@ -1,11 +1,10 @@
-// package.json
 {
   "name": "miubank-backend",
   "version": "1.0.0",
   "description": "Backend para o Miubank - Seu Companheiro Financeiro Gamificado",
   "main": "src/index.js",
   "scripts": {
-    "start": "npm run migrate && npm run seed && node src/index.js", // <-- MUDE ESTA LINHA!
+    "start": "npm run migrate && npm run seed && node src/index.js",
     "dev": "nodemon src/index.js",
     "generate": "prisma generate",
     "migrate": "prisma migrate deploy",
