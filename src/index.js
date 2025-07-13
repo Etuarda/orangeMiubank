@@ -5,14 +5,15 @@ const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJSDoc = require('swagger-jsdoc');
 
-// Importação das rotas (AGORA SEM QUALQUER REFERÊNCIA AO PING.ROUTES)
+// Importação das rotas
 const authRoutes = require('./routes/authRoutes');
 const accountRoutes = require('./routes/account.routes');
 const marketRoutes = require('./routes/market.routes');
 const userRoutes = require('./routes/user.routes');
 const reportRoutes = require('./routes/report.routes');
-// REMOVIDO: const pingRoutes = require('./routes/ping.routes'); // Esta linha foi a causa do erro!
-const financialGoalRoutes = require('./routes/financialGoal.routes'); // Import financial goal routes
+const financialGoalRoutes = require('./routes/financialGoal.routes');
+// NOVO: Importar rotas de FinancialTip
+const financialTipRoutes = require('./routes/financialTip.routes');
 
 // Importação do job de atualização de mercado
 const startMarketUpdateJob = require('./jobs/marketUpdateJob');
@@ -81,8 +82,7 @@ const swaggerOptions = {
             { name: 'Mercado', description: 'Operações de compra e venda de ativos e consulta de mercado.' },
             { name: 'Usuário', description: 'Rotas para informações do perfil do usuário.' },
             { name: 'Relatórios', description: 'Geração de extratos e resumos financeiros.' },
-            { name: 'Gamificação', description: 'Funcionalidades relacionadas a pontos e metas financeiras.' }, // Já adicionada anteriormente
-            // REMOVIDO: Tag 'Ping'
+            { name: 'Gamificação', description: 'Funcionalidades relacionadas a pontos e metas financeiras.' },
         ]
     },
     apis: [
@@ -91,31 +91,30 @@ const swaggerOptions = {
         './src/routes/market.routes.js',
         './src/routes/user.routes.js',
         './src/routes/report.routes.js',
-        './src/routes/financialGoal.routes.js', // Rotas de metas
-        // REMOVIDO: './src/routes/ping.routes.js'
+        './src/routes/financialGoal.routes.js',
+        './src/routes/financialTip.routes.js', // NOVO: Adicionar rotas de financialTip
     ],
 };
 
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
 
-// Rota básica de saúde da API
 app.get('/', (req, res) => {
     res.send('MiuBank API rodando! 🐱💰');
 });
 
-// Configura a interface do Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Montagem das rotas públicas
 app.use('/auth', authRoutes);
-// REMOVIDO: app.use('/ping', pingRoutes);
 
 // Montagem das rotas protegidas
 app.use('/accounts', accountRoutes);
 app.use('/market', marketRoutes);
 app.use('/user', userRoutes);
 app.use('/reports', reportRoutes);
-app.use('/goals', financialGoalRoutes); // Monta as rotas de metas
+app.use('/goals', financialGoalRoutes);
+// NOVO: Montar rotas de financialTip
+app.use('/financial-tips', financialTipRoutes);
 
 // Middleware de tratamento de erros global
 app.use(errorMiddleware);
