@@ -10,15 +10,41 @@ async function main() {
     console.log('🔄 Iniciando seeding...');
 
     // Limpeza da base de dados (ordem importa devido a foreign keys)
+    // Deletar tabelas que têm chaves estrangeiras que referenciam outras tabelas,
+    // começando pelas "folhas" da árvore de dependência.
     await prisma.movement.deleteMany({});
+    console.log('🗑️ Todos os Movements deletados.');
+
     await prisma.investment.deleteMany({});
+    console.log('🗑️ Todos os Investments deletados.');
+
+    // Adicione esta linha: FinancialGoal deve ser deletado antes de User
+    await prisma.financialGoal.deleteMany({});
+    console.log('🗑️ Todos os FinancialGoals deletados.');
+
     await prisma.pet.deleteMany({});
+    console.log('🗑️ Todos os Pets deletados.');
+
     await prisma.account.deleteMany({});
+    console.log('🗑️ Todas as Accounts deletadas.');
+
+    // Agora sim, você pode deletar os usuários, pois suas dependências já foram removidas
     await prisma.user.deleteMany({});
+    console.log('🗑️ Todos os Users deletados.');
+
+    // Tabelas que não possuem dependências de outras tabelas ou que são referenciadas
+    // por outras que já foram limpas podem ser deletadas em qualquer ordem após suas dependentes.
     await prisma.financialTip.deleteMany({});
+    console.log('🗑️ Todos os FinancialTips deletados.');
+
     await prisma.asset.deleteMany({});
+    console.log('🗑️ Todos os Assets deletados.');
 
     console.log('✅ Base limpa com sucesso.');
+
+    // ... (o restante do seu código de seeding para carregar mocks e criar novos dados)
+    // O restante do seu código (criação de usuários, ativos, investimentos, etc.)
+    // pode permanecer como está, pois o problema era apenas na fase de limpeza.
 
     // Carregando mocks
     const usersMockPath = path.resolve(__dirname, '../assets/users-mock.json');
