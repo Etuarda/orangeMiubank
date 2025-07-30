@@ -1,4 +1,3 @@
-// prisma/seed.js
 const { PrismaClient, Prisma } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const path = require('path');
@@ -6,92 +5,65 @@ const fs = require('fs');
 
 const prisma = new PrismaClient();
 
-async function main() {
-    console.log('🔄 Iniciando seeding...');
+// Função utilitária para carregar JSON com validação
+function carregarMock(pathRelativo) {
+    const fullPath = path.resolve(__dirname, pathRelativo);
+    const raw = fs.readFileSync(fullPath, 'utf8');
+    return JSON.parse(raw);
+}
 
-    // Limpeza da base de dados (ordem importa devido a foreign keys)
-    // Deletar tabelas que têm chaves estrangeiras que referenciam outras tabelas,
-    // começando pelas "folhas" da árvore de dependência.
+// Limpa o banco de dados respeitando a ordem das foreign keys
+async function limparBanco() {
     await prisma.movement.deleteMany({});
-    console.log('🗑️ Todos os Movements deletados.');
-
     await prisma.investment.deleteMany({});
-    console.log('🗑️ Todos os Investments deletados.');
-
-    // Adicione esta linha: FinancialGoal deve ser deletado antes de User
     await prisma.financialGoal.deleteMany({});
-    console.log('🗑️ Todos os FinancialGoals deletados.');
-
     await prisma.pet.deleteMany({});
-    console.log('🗑️ Todos os Pets deletados.');
-
     await prisma.account.deleteMany({});
-    console.log('🗑️ Todas as Accounts deletadas.');
-
-    // Agora sim, você pode deletar os usuários, pois suas dependências já foram removidas
     await prisma.user.deleteMany({});
-    console.log('🗑️ Todos os Users deletados.');
-
-    // Tabelas que não possuem dependências de outras tabelas ou que são referenciadas
-    // por outras que já foram limpas podem ser deletadas em qualquer ordem após suas dependentes.
     await prisma.financialTip.deleteMany({});
-    console.log('🗑️ Todos os FinancialTips deletados.');
-
     await prisma.asset.deleteMany({});
-    console.log('🗑️ Todos os Assets deletados.');
+}
 
-    console.log('✅ Base limpa com sucesso.');
-
-    // ... (o restante do seu código de seeding para carregar mocks e criar novos dados)
-    // O restante do seu código (criação de usuários, ativos, investimentos, etc.)
-    // pode permanecer como está, pois o problema era apenas na fase de limpeza.
-
-    // Carregando mocks
-    const usersMockPath = path.resolve(__dirname, '../assets/users-mock.json');
-    const assetsMockPath = path.resolve(__dirname, '../assets/assets-mock.json');
-
-    const usersData = JSON.parse(fs.readFileSync(usersMockPath, 'utf8')).users;
-    const assetsData = JSON.parse(fs.readFileSync(assetsMockPath, 'utf8'));
-
-    // ====================================================================
-    // CRIAÇÃO DE USUÁRIOS E CONTAS A PARTIR DO MOCK
-    // ====================================================================
+// Cria usuários com contas e pets
+async function criarUsuarios(usersData) {
     const createdUsers = [];
+
     for (const user of usersData) {
         const hashedPassword = await bcrypt.hash('password123', 10);
-        const birthDate = new Date(user.birthDate);
 
-        const newUser = await prisma.user.create({
+        const novoUsuario = await prisma.user.create({
             data: {
                 name: user.name,
                 email: user.email,
                 password: hashedPassword,
                 cpf: user.cpf,
-                birthDate,
+                birthDate: new Date(user.birthDate),
                 accounts: {
                     create: [
-                        { type: 'CORRENTE', balance: new Prisma.Decimal(5000.00) }, // Saldo inicial para CC
-                        { type: 'INVESTIMENTO', balance: new Prisma.Decimal(1000.00) } // Saldo inicial para CI
+                        { type: 'CORRENTE', balance: new Prisma.Decimal(5000.0) },
+                        { type: 'INVESTIMENTO', balance: new Prisma.Decimal(1000.0) }
                     ]
                 },
                 pet: {
                     create: {
                         mood: 3,
-                        savedThisMonth: new Prisma.Decimal(0.00),
+                        savedThisMonth: new Prisma.Decimal(0.0),
                         lastUpdate: new Date()
                     }
                 }
             }
         });
-        createdUsers.push(newUser);
-        console.log(`👤 Usuário ${newUser.name} criado.`);
+
+        createdUsers.push(novoUsuario);
     }
 
-    // ====================================================================
-    // CRIAÇÃO DE ATIVOS A PARTIR DO MOCK
-    // ====================================================================
+    return createdUsers;
+}
+
+// Cria ativos do tipo ação e renda fixa
+async function criarAtivos(assetsData) {
     const createdAssets = [];
-    // Ações
+
     for (const stock of assetsData.stocks) {
         const asset = await prisma.asset.create({
             data: {
@@ -100,121 +72,104 @@ async function main() {
                 type: 'ACAO',
                 currentPrice: new Prisma.Decimal(stock.currentPrice),
                 description: `Ações da ${stock.name} do setor ${stock.sector}.`,
-                lastUpdate: new Date(),
-                // Campos de renda fixa não aplicáveis (serão nulos)
+                lastUpdate: new Date()
             }
         });
+
         createdAssets.push(asset);
-        console.log(`📈 Ação ${asset.name} (${asset.symbol}) criada.`);
     }
 
-    // Renda Fixa
     for (const fi of assetsData.fixedIncome) {
         const asset = await prisma.asset.create({
             data: {
                 name: fi.name,
                 type: fi.type === 'CDB' ? 'CDB' : 'TESOURO_DIRETO',
-                currentPrice: new Prisma.Decimal(fi.minimumInvestment), // Usa minInvestment como preço inicial para RF
+                currentPrice: new Prisma.Decimal(fi.minimumInvestment),
                 description: `${fi.name} - Rendimento ${fi.rate * 100}% ${fi.rateType}. Vencimento: ${fi.maturity}.`,
                 rate: new Prisma.Decimal(fi.rate),
                 rateType: fi.rateType,
                 maturity: new Date(fi.maturity),
                 minimumInvestment: new Prisma.Decimal(fi.minimumInvestment),
-                lastUpdate: new Date(),
-                // Symbol não aplicável (será nulo)
+                lastUpdate: new Date()
             }
         });
+
         createdAssets.push(asset);
-        console.log(`🏦 Renda Fixa ${asset.name} criada.`);
     }
 
-    // ====================================================================
-    // CRIAÇÃO DE INVESTIMENTOS INICIAIS (Exemplo para o primeiro usuário)
-    // ====================================================================
-    if (createdUsers.length > 0 && createdAssets.length > 0) {
-        const firstUser = createdUsers[0];
-        const firstUserInvestmentAccount = await prisma.account.findFirst({
-            where: {
-                userId: firstUser.id,
-                type: 'INVESTIMENTO'
-            }
+    return createdAssets;
+}
+
+// Cria investimento inicial para o primeiro usuário
+async function criarInvestimentoInicial(user, assets) {
+    const contaInvestimento = await prisma.account.findFirst({
+        where: {
+            userId: user.id,
+            type: 'INVESTIMENTO'
+        }
+    });
+
+    if (!contaInvestimento) return;
+
+    const acoes = assets.find(a => a.symbol === 'BOIB3');
+    const rendaFixa = assets.find(a => a.name === 'CDB Banco A');
+
+    if (acoes) {
+        await registrarInvestimento({
+            userId: user.id,
+            accountId: contaInvestimento.id,
+            asset: acoes,
+            quantity: 5
         });
-
-        const boib3Asset = createdAssets.find(a => a.symbol === 'BOIB3');
-        const cdb001Asset = createdAssets.find(a => a.name === 'CDB Banco A');
-
-        if (boib3Asset && firstUserInvestmentAccount) {
-            const quantity = 5;
-            const purchasePrice = new Prisma.Decimal(boib3Asset.currentPrice);
-            const totalCost = purchasePrice.times(quantity);
-
-            // Debita da conta de investimento
-            await prisma.account.update({
-                where: { id: firstUserInvestmentAccount.id },
-                data: { balance: { decrement: totalCost } }
-            });
-
-            const investment = await prisma.investment.create({
-                data: {
-                    userId: firstUser.id,
-                    assetId: boib3Asset.id,
-                    quantity: new Prisma.Decimal(quantity),
-                    purchasePrice: purchasePrice,
-                },
-            });
-
-            // Registra a movimentação de compra
-            await prisma.movement.create({
-                data: {
-                    fromAccountId: firstUserInvestmentAccount.id,
-                    toAccountId: firstUserInvestmentAccount.id,
-                    amount: totalCost,
-                    type: 'COMPRA_ATIVO',
-                    description: `Compra de ${quantity} unidades de ${boib3Asset.symbol}`,
-                    investmentId: investment.id,
-                },
-            });
-            console.log(`💸 Investimento inicial de ${firstUser.name} em ${boib3Asset.name} criado.`);
-        }
-
-        if (cdb001Asset && firstUserInvestmentAccount) {
-            const quantityCDB = 1; // Representa 1 unidade nominal do CDB
-            const purchasePriceCDB = new Prisma.Decimal(cdb001Asset.currentPrice);
-            const totalCostCDB = purchasePriceCDB.times(quantityCDB);
-
-            // Debita da conta de investimento
-            await prisma.account.update({
-                where: { id: firstUserInvestmentAccount.id },
-                data: { balance: { decrement: totalCostCDB } }
-            });
-
-            const investment = await prisma.investment.create({
-                data: {
-                    userId: firstUser.id,
-                    assetId: cdb001Asset.id,
-                    quantity: new Prisma.Decimal(quantityCDB),
-                    purchasePrice: purchasePriceCDB,
-                },
-            });
-
-            // Registra a movimentação de compra
-            await prisma.movement.create({
-                data: {
-                    fromAccountId: firstUserInvestmentAccount.id,
-                    toAccountId: firstUserInvestmentAccount.id,
-                    amount: totalCostCDB,
-                    type: 'COMPRA_ATIVO',
-                    description: `Compra de ${quantityCDB} unidade(s) de ${cdb001Asset.name}`,
-                    investmentId: investment.id,
-                },
-            });
-            console.log(`💸 Investimento inicial de ${firstUser.name} em ${cdb001Asset.name} criado.`);
-        }
     }
 
-    // ====================================================================
-    // CRIAÇÃO DE PÍLULAS DE RIQUEZA
-    // ====================================================================
+    if (rendaFixa) {
+        await registrarInvestimento({
+            userId: user.id,
+            accountId: contaInvestimento.id,
+            asset: rendaFixa,
+            quantity: 1
+        });
+    }
+}
+
+// Cria investimento e registra movimentação
+async function registrarInvestimento({ userId, accountId, asset, quantity }) {
+    const price = new Prisma.Decimal(asset.currentPrice);
+    const total = price.times(quantity);
+
+    await prisma.account.update({
+        where: { id: accountId },
+        data: {
+            balance: {
+                decrement: total
+            }
+        }
+    });
+
+    const investimento = await prisma.investment.create({
+        data: {
+            userId,
+            assetId: asset.id,
+            quantity: new Prisma.Decimal(quantity),
+            purchasePrice: price
+        }
+    });
+
+    await prisma.movement.create({
+        data: {
+            fromAccountId: accountId,
+            toAccountId: accountId,
+            amount: total,
+            type: 'COMPRA_ATIVO',
+            description: `Compra de ${quantity} ${asset.symbol || asset.name}`,
+            investmentId: investimento.id
+        }
+    });
+}
+
+// Cria dicas financeiras
+async function criarDicas() {
     await prisma.financialTip.createMany({
         data: [
             {
@@ -240,28 +195,42 @@ async function main() {
             },
             {
                 title: 'A importância da Reserva de Emergência',
-                description: 'Ter um dinheiro guardado para imprevistos te dá segurança e evita que seu pet passe aperto.',
+                description: 'Ter um dinheiro guardado para imprevistos te dá segurança.',
                 example: '3 a 6 meses dos seus gastos essenciais.',
                 source: 'https://www.exemplo.com/reserva-miubank',
                 category: 'Economia'
             },
             {
                 title: 'Gastos por Impulso',
-                description: 'Comprar sem pensar faz seu pet chorar. Pense duas vezes antes de gastar com coisas que não precisa.',
-                example: 'Antes de comprar, espere 24h. Se ainda quiser, compre!',
+                description: 'Comprar sem pensar faz seu pet chorar.',
+                example: 'Antes de comprar, espere 24h.',
                 source: 'https://www.exemplo.com/gastos-miubank',
                 category: 'Comportamento'
-            },
-        ],
+            }
+        ]
     });
-    console.log('🎓 Pílulas de riqueza criadas.');
-    console.log('✅ Seeding finalizado com sucesso.');
 }
 
-// Executa o script de seeding
+// Função principal
+async function main() {
+    await limparBanco();
+
+    const usersData = carregarMock('../assets/users-mock.json').users;
+    const assetsData = carregarMock('../assets/assets-mock.json');
+
+    const users = await criarUsuarios(usersData);
+    const assets = await criarAtivos(assetsData);
+
+    if (users.length && assets.length) {
+        await criarInvestimentoInicial(users[0], assets);
+    }
+
+    await criarDicas();
+}
+
 main()
     .catch((e) => {
-        console.error('❌ Erro durante seeding:', e);
+        console.error('Erro durante seeding:', e);
         process.exit(1);
     })
     .finally(async () => {
